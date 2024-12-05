@@ -76,6 +76,43 @@ def is_owned_by_root(path: Path) -> bool:
     return statbuf.st_uid == 0 and statbuf.st_gid == 0
 
 
+def is_owned_by_user(path: Path) -> bool:
+    statbuf = path.stat()
+    return statbuf.st_uid == os.geteuid() and statbuf.st_gid == os.getegid()
+
+
+def mkdir_owned_user(path: Union[str, Path], mode: int = 0o755) -> None:
+    """
+    Ensures a directory exists and is owned by the current user.
+
+    If the directory exists and is owned by the current user, it is left as is.
+    If the directory exists and is not owned by the current user, it is removed and recreated. If after recreation
+    it is still not owned by the current user, the function raises.
+    """
+
+    path = path if isinstance(path, Path) else Path(path)
+    # parent is expected to be the current user - otherwise, after we create the user-owned directory, it can be removed
+    # as re-created as non-root by a regular user.
+    if not is_owned_by_user(path.parent):
+        raise Exception(f"expected {path.parent} to be owned by user!")
+
+    if path.exists():
+        if is_owned_by_user(path):
+            return
+
+        shutil.rmtree(path)
+
+    try:
+        os.mkdir(path, mode=mode)
+    except FileExistsError:
+        # likely racing with another thread of gprofiler. as long as the directory is the user after all, we're good.
+        pass
+
+    if not is_owned_by_user(path):
+        # lost race with someone else?
+        raise Exception(f"Failed to create directory {str(path)} as owned by user")
+
+
 def mkdir_owned_root(path: Union[str, Path], mode: int = 0o755) -> None:
     """
     Ensures a directory exists and is owned by root.

@@ -75,7 +75,7 @@ from gprofiler.utils import (
     resource_path,
     run_process,
 )
-from gprofiler.utils.fs import escape_filename, mkdir_owned_root
+from gprofiler.utils.fs import escape_filename, mkdir_owned_user
 from gprofiler.utils.proxy import get_https_proxy
 
 if is_linux():
@@ -1106,7 +1106,7 @@ def main() -> None:
                 )
                 sys.exit(1)
 
-        mkdir_owned_root(TEMPORARY_STORAGE_PATH)
+        mkdir_owned_user(TEMPORARY_STORAGE_PATH)
 
         try:
             client_kwargs = {}

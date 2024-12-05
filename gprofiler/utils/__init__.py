@@ -62,11 +62,6 @@ from gprofiler.log import get_logger_adapter
 logger = get_logger_adapter(__name__)
 
 GPROFILER_DIRECTORY_NAME = "gprofiler_tmp"
-TEMPORARY_STORAGE_PATH = (
-    f"/tmp/{GPROFILER_DIRECTORY_NAME}"
-    if is_linux()
-    else os.getenv("USERPROFILE", default=os.getcwd()) + f"\\AppData\\Local\\Temp\\{GPROFILER_DIRECTORY_NAME}"
-)
 
 gprofiler_mutex: Optional[socket.socket] = None
 
@@ -80,6 +75,13 @@ def resource_path(relative_path: str = "") -> str:
             return str(path)
     except ImportError as e:
         raise Exception(f"Resource {relative_path!r} not found!") from e
+
+
+TEMPORARY_STORAGE_PATH = (
+    f"{resource_path(GPROFILER_DIRECTORY_NAME)}"
+    if is_linux()
+    else os.getenv("USERPROFILE", default=os.getcwd()) + f"\\AppData\\Local\\Temp\\{GPROFILER_DIRECTORY_NAME}"
+)
 
 
 @lru_cache(maxsize=None)
