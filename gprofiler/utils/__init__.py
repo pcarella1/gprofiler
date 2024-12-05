@@ -39,7 +39,7 @@ import importlib_resources
 import psutil
 from granulate_utils.exceptions import CouldNotAcquireMutex
 from granulate_utils.linux.mutex import try_acquire_mutex
-from granulate_utils.linux.ns import run_in_ns
+from granulate_utils.linux.ns import run_in_ns_wrapper
 from granulate_utils.linux.process import is_kernel_thread, process_exe
 from psutil import Process
 
@@ -351,7 +351,7 @@ else:
         return procs
 
 
-def pgrep_maps(match: str) -> List[Process]:
+def pgrep_maps(match: str, ignore_permission_errors: bool = False) -> List[Process]:
     # this is much faster than iterating over processes' maps with psutil.
     # We use flag -E in grep to support systems where grep is not PCRE
     result = run_process(
@@ -376,7 +376,11 @@ def pgrep_maps(match: str) -> List[Process]:
     for line in result.stderr.splitlines():
         if not (
             line.startswith(b"grep: /proc/")
-            and (line.endswith(b"/maps: No such file or directory") or line.endswith(b"/maps: No such process"))
+            and (
+                line.endswith(b"/maps: No such file or directory")
+                or line.endswith(b"/maps: No such process")
+                or b"Permission denied" in line
+            )
         ):
             error_lines.append(line)
     if error_lines:
@@ -455,7 +459,7 @@ def grab_gprofiler_mutex() -> bool:
     GPROFILER_LOCK = "\x00gprofiler_lock"
 
     try:
-        run_in_ns(["net"], lambda: try_acquire_mutex(GPROFILER_LOCK))
+        run_in_ns_wrapper(["net"], lambda: try_acquire_mutex(GPROFILER_LOCK))
     except CouldNotAcquireMutex:
         print(
             "Could not acquire gProfiler's lock. Is it already running?"

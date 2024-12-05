@@ -49,7 +49,12 @@ from gprofiler.utils.collapsed_format import parse_one_collapsed
 if is_linux():
     from granulate_utils.linux import proc_events
     from granulate_utils.linux.kernel_messages import KernelMessage
-    from granulate_utils.linux.ns import get_proc_root_path, get_process_nspid, resolve_proc_root_links, run_in_ns
+    from granulate_utils.linux.ns import (
+        get_proc_root_path,
+        get_process_nspid,
+        resolve_proc_root_links,
+        run_in_ns_wrapper,
+    )
     from granulate_utils.linux.oom import get_oom_entry
     from granulate_utils.linux.process import (
         get_mapped_dso_elf_id,
@@ -84,6 +89,7 @@ from gprofiler.profilers.registry import ProfilerArgument, register_profiler
 from gprofiler.utils import (
     GPROFILER_DIRECTORY_NAME,
     TEMPORARY_STORAGE_PATH,
+    is_root,
     pgrep_maps,
     remove_path,
     remove_prefix,
@@ -354,7 +360,7 @@ def get_java_version(process: Process, stop_event: Event) -> Optional[str]:
 
     # doesn't work without changing PID NS as well (I'm getting ENOENT for libjli.so)
     # Version is printed to stderr
-    return run_in_ns(["pid", "mnt"], _run_java_version, process.pid).stderr.decode().strip()
+    return run_in_ns_wrapper(["pid", "mnt"], _run_java_version, process.pid).stderr.decode().strip()
 
 
 def get_java_version_logged(process: Process, stop_event: Event) -> Optional[str]:
@@ -1379,7 +1385,11 @@ class JavaProfiler(SpawningProcessProfilerBase):
             logger.debug("Java profiling has been disabled, skipping profiling of all java processes")
             # continue - _profile_process will return an appropriate error for each process selected for
             # profiling.
-        return pgrep_maps(DETECTED_JAVA_PROCESSES_REGEX)
+        if is_root():
+            ignore_permission_errors = False
+        else:
+            ignore_permission_errors = True
+        return pgrep_maps(DETECTED_JAVA_PROCESSES_REGEX, ignore_permission_errors)
 
     def _should_profile_process(self, process: Process) -> bool:
         return search_proc_maps(process, DETECTED_JAVA_PROCESSES_REGEX) is not None

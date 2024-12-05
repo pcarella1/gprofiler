@@ -31,7 +31,7 @@ from gprofiler.platform import is_windows
 from gprofiler.profiler_state import ProfilerState
 from gprofiler.profilers.profiler_base import ProcessProfilerBase
 from gprofiler.profilers.registry import register_profiler
-from gprofiler.utils import pgrep_exe, pgrep_maps, random_prefix, removed_path, resource_path, run_process
+from gprofiler.utils import is_root, pgrep_exe, pgrep_maps, random_prefix, removed_path, resource_path, run_process
 from gprofiler.utils.process import process_comm
 from gprofiler.utils.speedscope import load_speedscope_as_collapsed
 
@@ -144,4 +144,8 @@ class DotnetProfiler(ProcessProfilerBase):
             )
 
     def _select_processes_to_profile(self) -> List[Process]:
-        return pgrep_exe("dotnet") if is_windows() else pgrep_maps(r"(^.+/dotnet[^/]*$)")
+        if is_root():
+            ignore_permission_errors = False
+        else:
+            ignore_permission_errors = True
+        return pgrep_exe("dotnet") if is_windows() else pgrep_maps(r"(^.+/dotnet[^/]*$)", ignore_permission_errors)

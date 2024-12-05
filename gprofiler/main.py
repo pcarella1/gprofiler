@@ -904,8 +904,12 @@ def _add_profilers_arguments(parser: configargparse.ArgumentParser) -> None:
 
 def verify_preconditions(args: configargparse.Namespace, processes_to_profile: Optional[List[Process]]) -> None:
     if not is_root():
-        print("Must run gprofiler as root, please re-run.", file=sys.stderr)
-        sys.exit(1)
+        print(
+            "Not running as root, and therefore functionality is limited. Profiling is limted to only processes "
+            "owned by this user that are passed with --pids. Logs and pid file must be directed to use owned "
+            "directory with --log-file and --pid-file respectively. Some additional configuration (e.g. "
+            "kernel.perf_event_paranoid) may be required to operate without root."
+        )
 
     if args.pid_ns_check and not is_running_in_init_pid():
         print(

@@ -22,7 +22,7 @@ from subprocess import CompletedProcess
 from typing import Any, Dict, List, Match, Optional, cast
 
 from granulate_utils.linux.elf import get_elf_id
-from granulate_utils.linux.ns import get_process_nspid, run_in_ns
+from granulate_utils.linux.ns import get_process_nspid, run_in_ns_wrapper
 from granulate_utils.linux.process import (
     get_mapped_dso_elf_id,
     is_process_basename_matching,
@@ -60,7 +60,7 @@ from gprofiler.utils.collapsed_format import parse_one_collapsed_file
 if is_linux():
     from gprofiler.profilers.python_ebpf import PythonEbpfProfiler, PythonEbpfError
 
-from gprofiler.utils import pgrep_exe, pgrep_maps, random_prefix, removed_path, resource_path, run_process
+from gprofiler.utils import is_root, pgrep_exe, pgrep_maps, random_prefix, removed_path, resource_path, run_process
 from gprofiler.utils.process import process_comm, search_proc_maps
 
 logger = get_logger_adapter(__name__)
@@ -140,7 +140,7 @@ class PythonMetadata(ApplicationMetadata):
                     timeout=self._PYTHON_TIMEOUT,
                 )
 
-            return run_in_ns(["pid", "mnt"], _run_python_process_in_ns, process.pid).stdout.decode().strip()
+            return run_in_ns_wrapper(["pid", "mnt"], _run_python_process_in_ns, process.pid).stdout.decode().strip()
         except Exception:
             return None
 
@@ -267,7 +267,11 @@ class PySpyProfiler(SpawningProcessProfilerBase):
         if is_windows():
             all_processes = [x for x in pgrep_exe("python")]
         else:
-            all_processes = [x for x in pgrep_maps(DETECTED_PYTHON_PROCESSES_REGEX)]
+            if is_root():
+                ignore_permission_errors = False
+            else:
+                ignore_permission_errors = True
+            all_processes = [x for x in pgrep_maps(DETECTED_PYTHON_PROCESSES_REGEX, ignore_permission_errors)]
 
         for process in all_processes:
             try:

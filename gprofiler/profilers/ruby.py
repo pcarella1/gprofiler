@@ -32,7 +32,7 @@ from gprofiler.metadata.application_metadata import ApplicationMetadata
 from gprofiler.profiler_state import ProfilerState
 from gprofiler.profilers.profiler_base import SpawningProcessProfilerBase
 from gprofiler.profilers.registry import register_profiler
-from gprofiler.utils import pgrep_maps, random_prefix, removed_path, resource_path, run_process
+from gprofiler.utils import is_root, pgrep_maps, random_prefix, removed_path, resource_path, run_process
 from gprofiler.utils.collapsed_format import parse_one_collapsed_file
 from gprofiler.utils.process import process_comm, search_proc_maps
 
@@ -138,7 +138,11 @@ class RbSpyProfiler(SpawningProcessProfilerBase):
             )
 
     def _select_processes_to_profile(self) -> List[Process]:
-        return pgrep_maps(self.DETECTED_RUBY_PROCESSES_REGEX)
+        if is_root():
+            ignore_permission_errors = False
+        else:
+            ignore_permission_errors = True
+        return pgrep_maps(self.DETECTED_RUBY_PROCESSES_REGEX, ignore_permission_errors)
 
     def _should_profile_process(self, process: Process) -> bool:
         return search_proc_maps(process, self.DETECTED_RUBY_PROCESSES_REGEX) is not None
