@@ -60,7 +60,7 @@ from gprofiler.utils.collapsed_format import parse_one_collapsed_file
 if is_linux():
     from gprofiler.profilers.python_ebpf import PythonEbpfProfiler, PythonEbpfError
 
-from gprofiler.utils import is_root, pgrep_exe, pgrep_maps, random_prefix, removed_path, resource_path, run_process
+from gprofiler.utils import pgrep_exe, pgrep_maps, random_prefix, removed_path, resource_path, run_process
 from gprofiler.utils.process import process_comm, search_proc_maps
 
 logger = get_logger_adapter(__name__)
@@ -267,11 +267,7 @@ class PySpyProfiler(SpawningProcessProfilerBase):
         if is_windows():
             all_processes = [x for x in pgrep_exe("python")]
         else:
-            if is_root():
-                ignore_permission_errors = False
-            else:
-                ignore_permission_errors = True
-            all_processes = [x for x in pgrep_maps(DETECTED_PYTHON_PROCESSES_REGEX, ignore_permission_errors)]
+            all_processes = [x for x in pgrep_maps(DETECTED_PYTHON_PROCESSES_REGEX)]
 
         for process in all_processes:
             try:

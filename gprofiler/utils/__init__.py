@@ -39,7 +39,7 @@ import importlib_resources
 import psutil
 from granulate_utils.exceptions import CouldNotAcquireMutex
 from granulate_utils.linux.mutex import try_acquire_mutex
-from granulate_utils.linux.ns import run_in_ns_wrapper
+from granulate_utils.linux.ns import run_in_ns_wrapper, is_root
 from granulate_utils.linux.process import is_kernel_thread, process_exe
 from psutil import Process
 
@@ -62,6 +62,11 @@ from gprofiler.log import get_logger_adapter
 logger = get_logger_adapter(__name__)
 
 GPROFILER_DIRECTORY_NAME = "gprofiler_tmp"
+TEMPORARY_STORAGE_PATH = (
+    f"/tmp/{GPROFILER_DIRECTORY_NAME}"
+    if is_linux()
+    else os.getenv("USERPROFILE", default=os.getcwd()) + f"\\AppData\\Local\\Temp\\{GPROFILER_DIRECTORY_NAME}"
+)
 
 gprofiler_mutex: Optional[socket.socket] = None
 
@@ -75,21 +80,6 @@ def resource_path(relative_path: str = "") -> str:
             return str(path)
     except ImportError as e:
         raise Exception(f"Resource {relative_path!r} not found!") from e
-
-
-TEMPORARY_STORAGE_PATH = (
-    f"{resource_path(GPROFILER_DIRECTORY_NAME)}"
-    if is_linux()
-    else os.getenv("USERPROFILE", default=os.getcwd()) + f"\\AppData\\Local\\Temp\\{GPROFILER_DIRECTORY_NAME}"
-)
-
-
-@lru_cache(maxsize=None)
-def is_root() -> bool:
-    if is_windows():
-        return cast(int, ctypes.windll.shell32.IsUserAnAdmin()) == 1  # type: ignore
-    else:
-        return os.geteuid() == 0
 
 
 libc: Optional[ctypes.CDLL] = None
@@ -353,7 +343,7 @@ else:
         return procs
 
 
-def pgrep_maps(match: str, ignore_permission_errors: bool = False) -> List[Process]:
+def pgrep_maps(match: str) -> List[Process]:
     # this is much faster than iterating over processes' maps with psutil.
     # We use flag -E in grep to support systems where grep is not PCRE
     result = run_process(
@@ -381,7 +371,7 @@ def pgrep_maps(match: str, ignore_permission_errors: bool = False) -> List[Proce
             and (
                 line.endswith(b"/maps: No such file or directory")
                 or line.endswith(b"/maps: No such process")
-                or b"Permission denied" in line
+                or (not is_root() and b"/maps: Permission denied" in line)
             )
         ):
             error_lines.append(line)

@@ -31,7 +31,7 @@ from typing import Iterable, List, Optional, Type, cast
 
 import configargparse
 import humanfriendly
-from granulate_utils.linux.ns import is_running_in_init_pid
+from granulate_utils.linux.ns import is_running_in_init_pid, is_root
 from granulate_utils.linux.process import is_process_running
 from granulate_utils.metadata.cloud import get_aws_execution_env
 from psutil import NoSuchProcess, Process
@@ -70,12 +70,11 @@ from gprofiler.utils import (
     atomically_symlink,
     get_iso8601_format_time,
     grab_gprofiler_mutex,
-    is_root,
     reset_umask,
     resource_path,
     run_process,
 )
-from gprofiler.utils.fs import escape_filename, mkdir_owned_user
+from gprofiler.utils.fs import escape_filename, mkdir_owned_root_wrapper
 from gprofiler.utils.proxy import get_https_proxy
 
 if is_linux():
@@ -121,6 +120,7 @@ class GProfiler:
         output_dir: str,
         flamegraph: bool,
         rotating_output: bool,
+        rootless: bool,
         profiler_api_client: Optional[ProfilerAPIClient],
         collect_metrics: bool,
         collect_metadata: bool,
@@ -141,6 +141,7 @@ class GProfiler:
         self._output_dir = output_dir
         self._flamegraph = flamegraph
         self._rotating_output = rotating_output
+        self._rootless = rootless
         self._profiler_api_client = profiler_api_client
         self._state = state
         self._remote_logs_handler = remote_logs_handler
@@ -566,6 +567,12 @@ def parse_cmd_args() -> configargparse.Namespace:
         help="Comma separated list of processes that will be filtered to profile,"
         " given multiple times will append pids to one list",
     )
+    parser.add_argument(
+        "--rootless", action="store_true", default=False, help="Run without root/sudo with limited functionality"
+        "Profiling is limted to only processes owned by this user that are passed with --pids. Logs and pid file "
+        "may be directed to user owned directory with --log-file and --pid-file respectively. Some additional "
+        "configuration (e.g. kernel.perf_event_paranoid) may be required to operate without root."
+    )
 
     _add_profilers_arguments(parser)
 
@@ -903,13 +910,12 @@ def _add_profilers_arguments(parser: configargparse.ArgumentParser) -> None:
 
 
 def verify_preconditions(args: configargparse.Namespace, processes_to_profile: Optional[List[Process]]) -> None:
-    if not is_root():
-        print(
-            "Not running as root, and therefore functionality is limited. Profiling is limted to only processes "
-            "owned by this user that are passed with --pids. Logs and pid file must be directed to use owned "
-            "directory with --log-file and --pid-file respectively. Some additional configuration (e.g. "
-            "kernel.perf_event_paranoid) may be required to operate without root."
-        )
+    if not args.rootless and not is_root():
+        print("Not running as root, rerun with --rootless or as root.", file=sys.stderr)
+        sys.exit(1)
+    elif args.rootless and is_root():
+        print("Conflict, running with --rootless and as root, rerun with --rootless or as root (but not both).", file=sys.stderr)
+        sys.exit(1)
 
     if args.pid_ns_check and not is_running_in_init_pid():
         print(
@@ -1106,7 +1112,7 @@ def main() -> None:
                 )
                 sys.exit(1)
 
-        mkdir_owned_user(TEMPORARY_STORAGE_PATH)
+        mkdir_owned_root_wrapper(TEMPORARY_STORAGE_PATH)
 
         try:
             client_kwargs = {}
@@ -1158,6 +1164,7 @@ def main() -> None:
             output_dir=args.output_dir,
             flamegraph=args.flamegraph,
             rotating_output=args.rotating_output,
+            rootless=args.rootless,
             profiler_api_client=profiler_api_client,
             collect_metrics=args.collect_metrics,
             collect_metadata=args.collect_metadata,

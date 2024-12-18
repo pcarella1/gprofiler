@@ -89,7 +89,6 @@ from gprofiler.profilers.registry import ProfilerArgument, register_profiler
 from gprofiler.utils import (
     GPROFILER_DIRECTORY_NAME,
     TEMPORARY_STORAGE_PATH,
-    is_root,
     pgrep_maps,
     remove_path,
     remove_prefix,
@@ -1385,11 +1384,7 @@ class JavaProfiler(SpawningProcessProfilerBase):
             logger.debug("Java profiling has been disabled, skipping profiling of all java processes")
             # continue - _profile_process will return an appropriate error for each process selected for
             # profiling.
-        if is_root():
-            ignore_permission_errors = False
-        else:
-            ignore_permission_errors = True
-        return pgrep_maps(DETECTED_JAVA_PROCESSES_REGEX, ignore_permission_errors)
+        return pgrep_maps(DETECTED_JAVA_PROCESSES_REGEX)
 
     def _should_profile_process(self, process: Process) -> bool:
         return search_proc_maps(process, DETECTED_JAVA_PROCESSES_REGEX) is not None
