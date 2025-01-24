@@ -31,7 +31,7 @@ from typing import Iterable, List, Optional, Type, cast
 
 import configargparse
 import humanfriendly
-from granulate_utils.linux.ns import is_running_in_init_pid, is_root
+from granulate_utils.linux.ns import is_root, is_running_in_init_pid
 from granulate_utils.linux.process import is_process_running
 from granulate_utils.metadata.cloud import get_aws_execution_env
 from psutil import NoSuchProcess, Process
@@ -568,10 +568,13 @@ def parse_cmd_args() -> configargparse.Namespace:
         " given multiple times will append pids to one list",
     )
     parser.add_argument(
-        "--rootless", action="store_true", default=False, help="Run without root/sudo with limited functionality"
+        "--rootless",
+        action="store_true",
+        default=False,
+        help="Run without root/sudo with limited functionality"
         "Profiling is limted to only processes owned by this user that are passed with --pids. Logs and pid file "
         "may be directed to user owned directory with --log-file and --pid-file respectively. Some additional "
-        "configuration (e.g. kernel.perf_event_paranoid) may be required to operate without root."
+        "configuration (e.g. kernel.perf_event_paranoid) may be required to operate without root.",
     )
 
     _add_profilers_arguments(parser)
@@ -914,7 +917,10 @@ def verify_preconditions(args: configargparse.Namespace, processes_to_profile: O
         print("Not running as root, rerun with --rootless or as root.", file=sys.stderr)
         sys.exit(1)
     elif args.rootless and is_root():
-        print("Conflict, running with --rootless and as root, rerun with --rootless or as root (but not both).", file=sys.stderr)
+        print(
+            "Conflict, running with --rootless and as root, rerun with --rootless or as root (but not both).",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     if args.pid_ns_check and not is_running_in_init_pid():

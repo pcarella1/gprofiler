@@ -21,10 +21,11 @@ from pathlib import Path
 from secrets import token_hex
 from typing import Union
 
+from granulate_utils.linux.ns import is_root
+
 from gprofiler.platform import is_windows
 from gprofiler.utils import remove_path, run_process
 
-from granulate_utils.linux.ns import is_root
 
 def safe_copy(src: str, dst: str) -> None:
     """
@@ -98,6 +99,8 @@ def mkdir_owned_root_wrapper(path: Union[str, Path], mode: int = 0o755) -> None:
         os.mkdir(path, mode=mode)
     except FileExistsError:
         # likely racing with another thread of gprofiler. as long as the directory is the user after all, we're good.
+        if not os.access(path, os.W_OK):
+            raise Exception(f"{str(path)} is not writable by current user")
         pass
 
 

@@ -39,7 +39,7 @@ import importlib_resources
 import psutil
 from granulate_utils.exceptions import CouldNotAcquireMutex
 from granulate_utils.linux.mutex import try_acquire_mutex
-from granulate_utils.linux.ns import run_in_ns_wrapper, is_root
+from granulate_utils.linux.ns import is_root, run_in_ns_wrapper
 from granulate_utils.linux.process import is_kernel_thread, process_exe
 from psutil import Process
 
